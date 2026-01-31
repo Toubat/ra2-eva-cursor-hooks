@@ -88,4 +88,4 @@ Files are installed to `~/.cursor/hooks/ra2-eva/` and configured in `~/.cursor/h
 
 ## Audio Credits
 
-Voice lines are from **Command & Conquer: Red Alert 2** by Westwood Studios / EA Games. This is a fan project for nostalgic/educational purposes.
+Voice lines are from **Command & Conquer: Red Alert 2** by Westwood Studios / EA Games. This is a fan project for educational purposes.
