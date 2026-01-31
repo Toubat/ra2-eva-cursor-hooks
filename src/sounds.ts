@@ -136,15 +136,25 @@ export const SOUND_MAPPINGS: Record<string, SoundMapping> = {
   },
 
   "stop:aborted": {
-    // "Cannot deploy here."
-    allied: ["ceva063.wav"],
-    soviet: ["csof063.wav"],
+    // "Cancelled."
+    allied: ["ceva051.wav"],
+    soviet: ["csof051.wav"],
   },
 
   "stop:error": {
     // "Cannot deploy here."
     allied: ["ceva063.wav"],
     soviet: ["csof063.wav"],
+  },
+
+  // ============================================================
+  // Agent Thoughts
+  // ============================================================
+
+  afterAgentThought: {
+    // "Incoming transmission." (agent finished thinking)
+    allied: ["ceva040.wav"],
+    soviet: ["csof040.wav"],
   },
 
   // ============================================================

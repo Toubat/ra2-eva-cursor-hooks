@@ -79,7 +79,8 @@ HOOKS_CONFIG='{
     "subagentStart": [{ "command": "bun '"$TARGET_DIR"'/index.ts" }],
     "subagentStop": [{ "command": "bun '"$TARGET_DIR"'/index.ts" }],
     "stop": [{ "command": "bun '"$TARGET_DIR"'/index.ts" }],
-    "preCompact": [{ "command": "bun '"$TARGET_DIR"'/index.ts" }]
+    "preCompact": [{ "command": "bun '"$TARGET_DIR"'/index.ts" }],
+    "afterAgentThought": [{ "command": "bun '"$TARGET_DIR"'/index.ts" }]
   }
 }'
 

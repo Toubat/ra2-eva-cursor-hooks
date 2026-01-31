@@ -7,18 +7,7 @@
  */
 
 import { stdin } from "bun";
-import { getFaction, playHookSound, getSoundKey } from "./player";
-
-// #region agent log - debug logging helper
-const DEBUG_ENDPOINT = "http://127.0.0.1:7250/ingest/4d6b02fd-c954-479e-9cf3-5b010857b686";
-const debugLog = (hypothesisId: string, message: string, data: Record<string, unknown>) => {
-  fetch(DEBUG_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ location: "index.ts", message, data, timestamp: Date.now(), sessionId: "debug-session", hypothesisId })
-  }).catch(() => {});
-};
-// #endregion
+import { getFaction, playHookSound } from "./player";
 import type {
   BeforeReadFileOutput,
   BeforeShellExecutionOutput,
@@ -118,18 +107,8 @@ async function main(): Promise<void> {
   console.error(`[EVA] Hook: ${hookName}`);
   console.error(`[EVA] ${faction.toUpperCase()} faction (hour: ${hour})`);
 
-  // #region agent log - Hypothesis A/B: Track which hooks fire and their sound keys
-  const soundKey = getSoundKey(input);
-  const toolName = (input as any).tool_name || null;
-  debugLog("A", "Hook invoked", { hookName, soundKey, toolName, faction, timestamp: Date.now() });
-  // #endregion
-
   // Play the appropriate sound (fire and forget)
   await playHookSound(input);
-
-  // #region agent log - Hypothesis C: Confirm sound was triggered
-  debugLog("C", "Sound played", { hookName, soundKey });
-  // #endregion
 
   // Build and return the appropriate response
   const response = buildResponse(hookName);

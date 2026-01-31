@@ -5,9 +5,9 @@
  */
 
 import { spawn } from "bun";
-import { resolve, dirname } from "path";
+import { dirname, resolve } from "path";
 import { SOUND_MAPPINGS, getStopSoundKey } from "./sounds";
-import type { Faction, HookInput, StopInput, PostToolUseInput } from "./types";
+import type { Faction, HookInput, PostToolUseInput, StopInput } from "./types";
 
 // Resolve assets directory relative to this file
 const SCRIPT_DIR = dirname(Bun.main);
@@ -32,7 +32,10 @@ function randomChoice<T>(arr: T[]): T {
 /**
  * Get the sound file path for a hook event
  */
-export function getSoundPath(hookType: string, faction: Faction): string | null {
+export function getSoundPath(
+  hookType: string,
+  faction: Faction
+): string | null {
   const mapping = SOUND_MAPPINGS[hookType];
   if (!mapping) {
     console.error(`[EVA] No sound mapping for hook: ${hookType}`);
@@ -46,7 +49,7 @@ export function getSoundPath(hookType: string, faction: Faction): string | null 
 
   const soundFile = randomChoice(sounds);
   const factionDir = faction === "allied" ? "eva_allied" : "eva_soviet";
-  
+
   return resolve(ASSETS_DIR, factionDir, soundFile);
 }
 
@@ -57,13 +60,13 @@ export function getSoundPath(hookType: string, faction: Faction): string | null 
  */
 export function getSoundKey(input: HookInput): string | null {
   const hookName = input.hook_event_name;
-  
+
   // Handle stop hook with status-based sounds
   if (hookName === "stop") {
     const stopInput = input as StopInput;
     return getStopSoundKey(stopInput.status);
   }
-  
+
   // Handle preToolUse - skip for tools with dedicated hooks
   if (hookName === "preToolUse") {
     const toolInput = input as PostToolUseInput;
@@ -73,11 +76,14 @@ export function getSoundKey(input: HookInput): string | null {
     if (toolInput.tool_name === "Read") {
       return null; // Skip - beforeReadFile handles read
     }
-    if (toolInput.tool_name === "Write" || toolInput.tool_name === "StrReplace") {
+    if (
+      toolInput.tool_name === "Write" ||
+      toolInput.tool_name === "StrReplace"
+    ) {
       return null; // Skip - afterFileEdit handles write/edit
     }
   }
-  
+
   // Handle postToolUse - skip for tools with dedicated hooks
   if (hookName === "postToolUse") {
     const toolInput = input as PostToolUseInput;
@@ -90,11 +96,26 @@ export function getSoundKey(input: HookInput): string | null {
       return null;
     }
     // Skip Write/StrReplace - afterFileEdit handles it
-    if (toolInput.tool_name === "Write" || toolInput.tool_name === "StrReplace") {
+    if (
+      toolInput.tool_name === "Write" ||
+      toolInput.tool_name === "StrReplace"
+    ) {
       return null;
     }
+    // Delete tool plays "Unit lost" - something was destroyed!
+    if (toolInput.tool_name === "Delete") {
+      return "postToolUseFailure"; // Maps to "Unit lost"
+    }
   }
-  
+
+  // Handle postToolUseFailure - skip Read failures (often just "file doesn't exist" checks)
+  if (hookName === "postToolUseFailure") {
+    const toolInput = input as PostToolUseInput;
+    if (toolInput.tool_name === "Read") {
+      return null; // Skip - file not existing is expected when checking before create
+    }
+  }
+
   return hookName;
 }
 
@@ -112,7 +133,7 @@ export async function playSound(filePath: string): Promise<void> {
     }
 
     console.error(`[EVA] Playing: ${filePath}`);
-    
+
     // Spawn afplay in background (fire and forget)
     spawn({
       cmd: ["afplay", filePath],
