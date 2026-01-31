@@ -49,7 +49,7 @@ npx ra2-eva
 ### Manual Installation
 
 ```bash
-git clone https://github.com/toubatbrian/cursor-hooks.git
+git clone https://github.com/Toubat/cursor-hooks.git
 cd cursor-hooks
 ./install.sh
 ```

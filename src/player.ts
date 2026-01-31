@@ -13,7 +13,7 @@ import type { Faction, HookInput, PostToolUseInput, StopInput } from "./types";
 
 // Resolve assets directory relative to this file
 const SCRIPT_DIR = dirname(Bun.main);
-const ASSETS_DIR = resolve(SCRIPT_DIR, "assets");
+const ASSETS_DIR = resolve(SCRIPT_DIR, "assets", "audio");
 
 // Lock file for audio queue
 const LOCK_FILE = "/tmp/ra2-eva-audio.lock";
@@ -130,6 +130,9 @@ export function getSoundKey(input: HookInput): string | null {
     if (toolInput.tool_name === "Read") {
       return null; // Skip - beforeReadFile handles read
     }
+    if (toolInput.tool_name === "Grep") {
+      return "beforeReadFile"; // Grep is like Read - play "Training"
+    }
     if (
       toolInput.tool_name === "Write" ||
       toolInput.tool_name === "StrReplace"
@@ -147,6 +150,10 @@ export function getSoundKey(input: HookInput): string | null {
     }
     // Skip Read - no sound needed after reading
     if (toolInput.tool_name === "Read") {
+      return null;
+    }
+    // Skip Grep - no sound needed after grep (like Read)
+    if (toolInput.tool_name === "Grep") {
       return null;
     }
     // Skip Write/StrReplace - afterFileEdit handles it
