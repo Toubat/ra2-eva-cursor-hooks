@@ -2,16 +2,68 @@
 /**
  * Red Alert 2 EVA Audio Player
  * Plays WAV files using macOS afplay command
+ * Includes audio queue to prevent overlapping sounds
  */
 
-import { spawn } from "bun";
+import { spawn, spawnSync } from "bun";
 import { dirname, resolve } from "path";
+import { unlinkSync, existsSync, writeFileSync } from "fs";
 import { SOUND_MAPPINGS, getStopSoundKey } from "./sounds";
 import type { Faction, HookInput, PostToolUseInput, StopInput } from "./types";
 
 // Resolve assets directory relative to this file
 const SCRIPT_DIR = dirname(Bun.main);
 const ASSETS_DIR = resolve(SCRIPT_DIR, "assets");
+
+// Lock file for audio queue
+const LOCK_FILE = "/tmp/ra2-eva-audio.lock";
+const MAX_WAIT_MS = 10000; // Max 10 seconds to wait for lock
+const POLL_INTERVAL_MS = 50; // Check every 50ms
+
+/**
+ * Acquire the audio lock (blocks until available or timeout)
+ */
+async function acquireLock(): Promise<boolean> {
+  const startTime = Date.now();
+  
+  while (existsSync(LOCK_FILE)) {
+    // Check if lock is stale (older than 5 seconds = stuck process)
+    try {
+      const stat = Bun.file(LOCK_FILE);
+      const lockTime = parseInt(await stat.text(), 10);
+      if (Date.now() - lockTime > 5000) {
+        // Stale lock, remove it
+        try { unlinkSync(LOCK_FILE); } catch {}
+        break;
+      }
+    } catch {}
+    
+    // Timeout check
+    if (Date.now() - startTime > MAX_WAIT_MS) {
+      console.error("[EVA] Timeout waiting for audio lock");
+      return false;
+    }
+    
+    await Bun.sleep(POLL_INTERVAL_MS);
+  }
+  
+  // Create lock with current timestamp
+  try {
+    writeFileSync(LOCK_FILE, Date.now().toString());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Release the audio lock
+ */
+function releaseLock(): void {
+  try {
+    unlinkSync(LOCK_FILE);
+  } catch {}
+}
 
 /**
  * Get the current faction based on hour
@@ -120,8 +172,8 @@ export function getSoundKey(input: HookInput): string | null {
 }
 
 /**
- * Play a WAV file asynchronously using afplay
- * Does not block - fire and forget
+ * Play a WAV file with queue support
+ * Waits for previous audio to finish before playing
  */
 export async function playSound(filePath: string): Promise<void> {
   try {
@@ -132,16 +184,29 @@ export async function playSound(filePath: string): Promise<void> {
       return;
     }
 
+    // Acquire lock (wait for previous audio to finish)
+    const gotLock = await acquireLock();
+    if (!gotLock) {
+      console.error(`[EVA] Could not acquire audio lock, skipping: ${filePath}`);
+      return;
+    }
+
     console.error(`[EVA] Playing: ${filePath}`);
 
-    // Spawn afplay in background (fire and forget)
-    spawn({
-      cmd: ["afplay", filePath],
-      stdout: "ignore",
-      stderr: "ignore",
-    });
+    try {
+      // Play audio SYNCHRONOUSLY (wait for it to finish)
+      spawnSync({
+        cmd: ["afplay", filePath],
+        stdout: "ignore",
+        stderr: "ignore",
+      });
+    } finally {
+      // Always release lock
+      releaseLock();
+    }
   } catch (error) {
     console.error(`[EVA] Error playing sound: ${error}`);
+    releaseLock(); // Ensure lock is released on error
   }
 }
 
