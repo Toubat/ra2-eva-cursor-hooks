@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /**
  * Red Alert 2 EVA Cursor Hooks
  *
@@ -6,8 +5,7 @@
  * Alternates between Allied (odd hours) and Soviet (even hours) voices.
  */
 
-import { stdin } from "bun";
-import { getFaction, playHookSound } from "./player";
+import { getFaction, playHookSound } from "./player.js";
 import type {
   BeforeReadFileOutput,
   BeforeShellExecutionOutput,
@@ -19,13 +17,30 @@ import type {
   StopOutput,
   SubagentStartOutput,
   SubagentStopOutput,
-} from "./types";
+} from "./types.js";
+
+/**
+ * Read all data from stdin
+ */
+async function readStdin(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => {
+      data += chunk;
+    });
+    process.stdin.on("end", () => {
+      resolve(data);
+    });
+    process.stdin.on("error", reject);
+  });
+}
 
 /**
  * Parse hook input from stdin
  */
 async function parseHookInput<T>(): Promise<T> {
-  const text = await stdin.text();
+  const text = await readStdin();
   return JSON.parse(text) as T;
 }
 

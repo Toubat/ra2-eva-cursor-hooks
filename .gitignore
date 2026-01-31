@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Lock files (using pnpm)
+package-lock.json
+bun.lockb
+
+# OS files
+.DS_Store

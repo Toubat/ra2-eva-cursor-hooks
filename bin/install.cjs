@@ -10,7 +10,6 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const readline = require("readline");
 
 // ANSI codes
 const colors = {
@@ -123,6 +122,9 @@ function countFiles(dir, extension) {
   return count;
 }
 
+// Check if -y or --yes flag is passed
+const skipConfirmation = process.argv.includes("-y") || process.argv.includes("--yes");
+
 async function main() {
   // Banner
   console.log();
@@ -143,7 +145,7 @@ async function main() {
   // Check if hooks.json exists and warn user
   const hooksJsonExists = fs.existsSync(hooksJsonPath);
   
-  if (hooksJsonExists) {
+  if (hooksJsonExists && !skipConfirmation) {
     console.log(`${colors.cyan}Found existing:${colors.reset} ${hooksJsonPath}`);
     console.log();
     console.log(`${colors.dim}This will override your existing hooks.json configuration.${colors.reset}`);
@@ -155,15 +157,22 @@ async function main() {
       log(colors.yellow, "Installation cancelled. Your hooks.json was not modified.");
       process.exit(0);
     }
-  } else {
+  } else if (!hooksJsonExists) {
     console.log(`${colors.dim}No existing hooks.json found. A new one will be created.${colors.reset}`);
     console.log();
   }
 
   // Source paths (relative to this script's package)
   const packageRoot = path.join(__dirname, "..");
-  const srcDir = path.join(packageRoot, "src");
+  const distDir = path.join(packageRoot, "dist");
   const assetsDir = path.join(packageRoot, "assets");
+
+  // Verify dist/index.js exists
+  const indexJsPath = path.join(distDir, "index.js");
+  if (!fs.existsSync(indexJsPath)) {
+    log(colors.red, "Error: dist/index.js not found. Package may be corrupted.");
+    process.exit(1);
+  }
 
   // Step 1: Remove existing installation
   log(colors.yellow, "[1/4] Removing existing installation...");
@@ -175,16 +184,11 @@ async function main() {
   log(colors.yellow, "[2/4] Creating directory structure...");
   fs.mkdirSync(targetDir, { recursive: true });
 
-  // Step 3: Copy TypeScript source files
-  log(colors.yellow, "[3/4] Copying source files & assets...");
-  const srcFiles = ["index.ts", "player.ts", "sounds.ts", "types.ts"];
-  for (const file of srcFiles) {
-    const srcPath = path.join(srcDir, file);
-    const destPath = path.join(targetDir, file);
-    if (fs.existsSync(srcPath)) {
-      fs.copyFileSync(srcPath, destPath);
-    }
-  }
+  // Step 3: Copy bundled JavaScript file
+  log(colors.yellow, "[3/4] Copying bundled hook & assets...");
+  
+  // Copy the bundled index.js
+  fs.copyFileSync(indexJsPath, path.join(targetDir, "index.js"));
 
   // Copy audio assets
   const assetsTargetDir = path.join(targetDir, "assets");
@@ -209,7 +213,8 @@ async function main() {
   // Step 4: Configure hooks.json
   log(colors.yellow, "[4/4] Configuring hooks.json...");
 
-  const hookCommand = `bun run ${targetDir}/index.ts`;
+  // Use node to run the bundled JavaScript
+  const hookCommand = `node ${targetDir}/index.js`;
   const hookEvents = [
     "sessionStart",
     "sessionEnd",
@@ -275,11 +280,6 @@ async function main() {
   );
   console.log();
   
-  log(colors.yellow, "Prerequisites:");
-  console.log(`  ${colors.dim}•${colors.reset} Bun runtime must be installed ${colors.dim}(https://bun.sh)${colors.reset}`);
-  console.log(`  ${colors.dim}•${colors.reset} Run: ${colors.cyan}curl -fsSL https://bun.sh/install | bash${colors.reset}`);
-  console.log();
-  
   log(colors.yellow, "Next steps:");
   console.log(`  ${colors.dim}•${colors.reset} Restart Cursor or reload the window`);
   console.log();
@@ -337,16 +337,8 @@ if (process.argv.includes("--uninstall")) {
   process.exit(0);
 }
 
-// Handle -y flag for non-interactive install
-if (process.argv.includes("-y") || process.argv.includes("--yes")) {
-  // Skip confirmation, run directly
-  main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-} else {
-  main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-}
+// Run the installer
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

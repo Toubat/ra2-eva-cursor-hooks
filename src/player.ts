@@ -1,24 +1,32 @@
-/// <reference types="bun-types" />
 /**
  * Red Alert 2 EVA Audio Player
  * Plays WAV files using macOS afplay command
  * Includes audio queue to prevent overlapping sounds
  */
 
-import { spawnSync } from "bun";
-import { existsSync, unlinkSync, writeFileSync } from "fs";
+import { spawnSync } from "child_process";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
-import { SOUND_MAPPINGS, getStopSoundKey } from "./sounds";
-import type { Faction, HookInput, PostToolUseInput, StopInput } from "./types";
+import { fileURLToPath } from "url";
+import { SOUND_MAPPINGS, getStopSoundKey } from "./sounds.js";
+import type { Faction, HookInput, PostToolUseInput, StopInput } from "./types.js";
 
 // Resolve assets directory relative to this file
-const SCRIPT_DIR = dirname(Bun.main);
-const ASSETS_DIR = resolve(SCRIPT_DIR, "assets", "audio");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const ASSETS_DIR = resolve(__dirname, "assets", "audio");
 
 // Lock file for audio queue
 const LOCK_FILE = "/tmp/ra2-eva-audio.lock";
 const MAX_WAIT_MS = 10000; // Max 10 seconds to wait for lock
 const POLL_INTERVAL_MS = 50; // Check every 50ms
+
+/**
+ * Sleep for a given number of milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Acquire the audio lock (blocks until available or timeout)
@@ -29,8 +37,8 @@ async function acquireLock(): Promise<boolean> {
   while (existsSync(LOCK_FILE)) {
     // Check if lock is stale (older than 5 seconds = stuck process)
     try {
-      const stat = Bun.file(LOCK_FILE);
-      const lockTime = parseInt(await stat.text(), 10);
+      const lockContent = readFileSync(LOCK_FILE, "utf8");
+      const lockTime = parseInt(lockContent, 10);
       if (Date.now() - lockTime > 5000) {
         // Stale lock, remove it
         try {
@@ -46,7 +54,7 @@ async function acquireLock(): Promise<boolean> {
       return false;
     }
 
-    await Bun.sleep(POLL_INTERVAL_MS);
+    await sleep(POLL_INTERVAL_MS);
   }
 
   // Create lock with current timestamp
@@ -87,9 +95,13 @@ function randomChoice<T>(arr: T[]): T {
  * Get the sound file path for a hook event
  */
 export function getSoundPath(
-  hookType: string,
+  hookType: string | null,
   faction: Faction
 ): string | null {
+  if (!hookType) {
+    return null;
+  }
+
   const mapping = SOUND_MAPPINGS[hookType];
   if (!mapping) {
     console.error(`[EVA] No sound mapping for hook: ${hookType}`);
@@ -187,8 +199,7 @@ export function getSoundKey(input: HookInput): string | null {
 export async function playSound(filePath: string): Promise<void> {
   try {
     // Check if file exists
-    const file = Bun.file(filePath);
-    if (!(await file.exists())) {
+    if (!existsSync(filePath)) {
       console.error(`[EVA] Sound file not found: ${filePath}`);
       return;
     }
@@ -206,10 +217,8 @@ export async function playSound(filePath: string): Promise<void> {
 
     try {
       // Play audio SYNCHRONOUSLY (wait for it to finish)
-      spawnSync({
-        cmd: ["afplay", filePath],
-        stdout: "ignore",
-        stderr: "ignore",
+      spawnSync("afplay", [filePath], {
+        stdio: "ignore",
       });
     } finally {
       // Always release lock

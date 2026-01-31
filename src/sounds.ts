@@ -3,7 +3,7 @@
  * Maps hook events to EVA voice lines for both Allied and Soviet factions
  */
 
-import type { SoundMapping } from "./types";
+import type { SoundMapping } from "./types.js";
 
 /**
  * Sound mappings for each hook event

@@ -1,6 +1,6 @@
 {
   "name": "ra2-eva-cursor-hooks",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "description": "Red Alert 2 EVA voice lines for Cursor IDE hooks - nostalgic audio feedback for your coding sessions",
   "keywords": [
     "cursor",
@@ -18,17 +18,27 @@
     "type": "git",
     "url": "https://github.com/Toubat/cursor-hooks.git"
   },
+  "type": "module",
   "bin": {
-    "ra2-eva-cursor-hooks": "./bin/install.js",
-    "ra2-eva": "./bin/install.js"
+    "ra2-eva-cursor-hooks": "./bin/install.cjs",
+    "ra2-eva": "./bin/install.cjs"
   },
   "files": [
     "bin/",
-    "src/",
+    "dist/",
     "assets/",
     "README.md"
   ],
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "pnpm run build"
+  },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
   }
 }
